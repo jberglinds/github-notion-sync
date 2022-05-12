@@ -1,12 +1,12 @@
 import fs from 'fs';
 import path from 'path';
+import * as gha from '@actions/core'
 import {Client} from '@notionhq/client'
 import {markdownToBlocks, markdownToRichText} from '@tryfabric/martian';
 import {Block} from "@tryfabric/martian/build/src/notion";
 
-const notion = new Client({auth: process.env.NOTION_ACCESS_TOKEN});
-
-const ROOT_PAGE_ID = '9e0f5e1776a84608a31ca3bfde5babef';
+const notion = new Client({auth: gha.getInput("NOTION_ACCESS_TOKEN", {required: true})});
+const ROOT_PAGE_ID = gha.getInput("NOTION_ROOT_PAGE_ID", {required: true})
 
 const getPageBlocks = async (pageId: string) => {
     const response = await notion.blocks.children.list({
@@ -119,21 +119,22 @@ const createPage = async (parentPageId: string, name: string, sourceUrl: string 
     return page
 }
 
-const WIKI_ROOT_PATH = 'dave.wiki/';
-const REPOSIORY_URL = 'https://github.com/webbhalsa/dave';
+const WIKI_ROOT_PATH = gha.getInput("WIKI_CHECKOUT_PATH")
+const REPOSIORY_URL = `https://github.com/${gha.getInput("REPOSITORY")}`;
 (async () => {
-    const files = await fs.promises.readdir(path.resolve(process.cwd(), WIKI_ROOT_PATH), {withFileTypes: true})
-    const markdownFiles = files.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/))
-
     await clearPage(ROOT_PAGE_ID);
-
-    const wikiPage = await createPage(ROOT_PAGE_ID, "Wiki", `${REPOSIORY_URL}/wiki`)
 
     const readmeMarkdown = await readFileAsString("README.md")
     const readmeBlocks = markdownToBlocks(readmeMarkdown);
     await addBlocksToPage(ROOT_PAGE_ID, [...generateHeaderBlocks(REPOSIORY_URL) as any, ...readmeBlocks]);
 
-    for (const file of markdownFiles) {
+    if (!WIKI_ROOT_PATH) return
+    const wikiFiles = await fs.promises.readdir(path.resolve(process.cwd(), WIKI_ROOT_PATH), {withFileTypes: true})
+    console.log(JSON.stringify(wikiFiles))
+    const wikiMarkdownFiles = wikiFiles.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/))
+    const wikiPage = await createPage(ROOT_PAGE_ID, "Wiki", `${REPOSIORY_URL}/wiki`)
+
+    for (const file of wikiMarkdownFiles) {
         const fileNameWithoutExtension = file.name.replace(".md", "")
         const page = await createPage(wikiPage.id, fileNameWithoutExtension, `${REPOSIORY_URL}/wiki/${fileNameWithoutExtension}`)
         const markdownContent = await readFileAsString(path.resolve(process.cwd(), WIKI_ROOT_PATH, file.name))

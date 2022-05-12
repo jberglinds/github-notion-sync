@@ -1,6 +1,12 @@
 name: 'Sync markdown to Notion'
 description: 'Syncs .md files in a github repo to a Notion page'
 inputs:
+  REPOSITORY:
+    description: 'The name of the repository, used to link back from Notion to the repo. Should normally be set to the github.repository parameter'
+    required: true
+  WIKI_CHECKOUT_PATH:
+    description: 'The path where the wiki of the repo is checked out. If not set, wiki will not be exported to Notion.'
+    required: false
   NOTION_ACCESS_TOKEN:
     description: 'Access token to access Notion API.'
     required: true

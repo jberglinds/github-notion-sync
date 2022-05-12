@@ -1,0 +1,25 @@
+name: Notion Sync
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Checkout wiki
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+
+      - uses: jberglinds/github-notion-sync@main
+        with:
+          REPOSITORY: ${{ github.repository }}
+          WIKI_CHECKOUT_PATH: wiki
+          NOTION_ACCESS_TOKEN: ${{ secrets.NOTION_ACCESS_TOKEN }}
+          NOTION_ROOT_PAGE_ID: 9e0f5e1776a84608a31ca3bfde5babef
