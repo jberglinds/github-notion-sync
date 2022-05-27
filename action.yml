@@ -7,13 +7,6 @@ inputs:
   NOTION_PAGE_ID:
     description: 'The page ID where the data will be synced. Contents and subpages will be replaced. Make sure the access token has been given access to the page.'
     required: true
-  REPOSITORY:
-    description: 'The name of the repository, used to link back from Notion to the repo. Should normally be set to the github.repository parameter'
-    required: false
-  BRANCH:
-    description: 'The branch of the checked out repository, used to link back from Notion to the source files'
-    default: 'main'
-    required: false
   WIKI_CHECKOUT_PATH:
     description: 'The path where the wiki of the repo is checked out. If not set, wiki will not be exported to Notion.'
     required: false
