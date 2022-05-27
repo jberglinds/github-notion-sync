@@ -19,6 +19,10 @@ const args = yargs
             type: 'string',
             description: 'The name of the repository, used to link back from Notion to the repo. Should normally be set to the github.repository parameter'
         },
+        branch: {
+            type: 'string',
+            description: 'The branch of the checked out repository, used to link back from Notion to the source files'
+        },
         wikiCheckoutPath: {
             type: 'string',
             description: 'The path where the wiki of the repo is checked out. If not set, wiki will not be exported to Notion.'
@@ -31,4 +35,4 @@ const args = yargs
     .parse(process.argv);
 
 // @ts-ignore
-(async () => sync(args.notionAccessToken, args.notionPageId, args.repository, args.wikiCheckoutPath))()
+(async () => sync(args.notionAccessToken, args.notionPageId, args.repository, args.branch, args.wikiCheckoutPath))()

@@ -18544,9 +18544,10 @@ const gha = __importStar(__nccwpck_require__(2186));
 const index_1 = __importDefault(__nccwpck_require__(6144));
 const NOTION_ACCESS_TOKEN = gha.getInput("NOTION_ACCESS_TOKEN", { required: true });
 const NOTION_PAGE_ID = gha.getInput("NOTION_PAGE_ID", { required: true });
-const REPOSITORY = gha.getInput("REPOSITORY");
+const REPOSITORY = process.env['GITHUB_REPOSITORY'];
+const BRANCH = process.env['GITHUB_REF_NAME'];
 const WIKI_CHECKOUT_PATH = gha.getInput("WIKI_CHECKOUT_PATH");
-(() => __awaiter(void 0, void 0, void 0, function* () { return (0, index_1.default)(NOTION_ACCESS_TOKEN, NOTION_PAGE_ID, REPOSITORY, WIKI_CHECKOUT_PATH); }))();
+(() => __awaiter(void 0, void 0, void 0, function* () { return (0, index_1.default)(NOTION_ACCESS_TOKEN, NOTION_PAGE_ID, REPOSITORY, BRANCH, WIKI_CHECKOUT_PATH); }))();
 
 
 /***/ }),
@@ -18599,25 +18600,58 @@ const notion = __importStar(__nccwpck_require__(7967));
 const readFileAsString = (filename) => __awaiter(void 0, void 0, void 0, function* () {
     return yield fs_1.default.promises.readFile(filename, { encoding: 'utf-8' });
 });
-const sync = (notionAccessToken, notionPageId, repository, wikiCheckoutPath) => __awaiter(void 0, void 0, void 0, function* () {
+const sync = (notionAccessToken, notionPageId, repository, branch, wikiCheckoutPath) => __awaiter(void 0, void 0, void 0, function* () {
     const notionClient = notion.getClient(notionAccessToken);
     const repositoryUrl = repository && `https://github.com/${repository}`;
+    const syncMarkdownFileToPage = (file, notionPageId) => __awaiter(void 0, void 0, void 0, function* () {
+        console.debug(`Syncing file "${file}"...`);
+        const markdown = yield readFileAsString(path_1.default.resolve(process.cwd(), file));
+        const blocks = (0, martian_1.markdownToBlocks)(markdown);
+        yield notionClient.addBlocksToPage(notionPageId, blocks);
+        console.debug(`Finished syncing file "${file}"`);
+    });
+    const syncDirectoryToPage = (directory, notionPageId, directorySourceUrl, basePageName) => __awaiter(void 0, void 0, void 0, function* () {
+        const name = basePageName ? basePageName + '/' : '';
+        const files = yield fs_1.default.promises.readdir(path_1.default.resolve(directory), { withFileTypes: true });
+        const markdownFiles = files.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/));
+        // Add readme contents directly to page if it exists
+        const readmeFile = markdownFiles.find(file => file.name.match(/^readme\.md$/i));
+        if (readmeFile)
+            yield syncMarkdownFileToPage(path_1.default.resolve(directory, readmeFile.name), notionPageId);
+        for (const file of markdownFiles.filter(f => !f.name.match(/^readme\.md$/i))) {
+            const fileNameWithoutExtension = file.name.replace(".md", "");
+            const page = yield notionClient.createPage(notionPageId, fileNameWithoutExtension, directorySourceUrl && `${directorySourceUrl}/${file.name}`);
+            yield syncMarkdownFileToPage(path_1.default.resolve(directory, file.name), page.id);
+        }
+        const directories = files.filter(file => file.isDirectory() && file.name.match(/^[^.]*$/));
+        for (const nestedDirectory of directories) {
+            if (wikiCheckoutPath && path_1.default.resolve(directory, nestedDirectory.name) === path_1.default.resolve(wikiCheckoutPath))
+                continue;
+            const nestedDirectoryFiles = yield fs_1.default.promises.readdir(path_1.default.resolve(directory, nestedDirectory.name), { withFileTypes: true });
+            const containsMarkdownFiles = nestedDirectoryFiles.find(file => file.isFile() && file.name.match(/^[^_.]*\.md$/));
+            if (containsMarkdownFiles) {
+                const page = yield notionClient.createPage(notionPageId, `${name}${nestedDirectory.name}`, directorySourceUrl && `${directorySourceUrl}/${nestedDirectory.name}`);
+                yield syncDirectoryToPage(`${directory}/${nestedDirectory.name}`, page.id, directorySourceUrl && `${directorySourceUrl}/${nestedDirectory.name}`);
+            }
+            else {
+                yield syncDirectoryToPage(`${directory}/${nestedDirectory.name}`, notionPageId, directorySourceUrl && `${directorySourceUrl}/${nestedDirectory.name}`, `${name}${nestedDirectory.name}`);
+            }
+        }
+    });
     yield notionClient.clearPage(notionPageId);
-    const readmeMarkdown = yield readFileAsString("README.md");
-    const readmeBlocks = (0, martian_1.markdownToBlocks)(readmeMarkdown);
-    yield notionClient.addBlocksToPage(notionPageId, [...notion.generateHeaderBlocks(repositoryUrl), ...readmeBlocks]);
-    if (!wikiCheckoutPath)
-        return;
-    const wikiFiles = yield fs_1.default.promises.readdir(path_1.default.resolve(process.cwd(), wikiCheckoutPath), { withFileTypes: true });
-    const wikiMarkdownFiles = wikiFiles.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/));
-    const wikiPage = yield notionClient.createPage(notionPageId, "Wiki", repositoryUrl && `${repositoryUrl}/wiki`);
-    for (const file of wikiMarkdownFiles) {
-        const fileNameWithoutExtension = file.name.replace(".md", "");
-        const page = yield notionClient.createPage(wikiPage.id, fileNameWithoutExtension, repositoryUrl && `${repositoryUrl}/wiki/${fileNameWithoutExtension}`);
-        const markdownContent = yield readFileAsString(path_1.default.resolve(process.cwd(), wikiCheckoutPath, file.name));
-        const blocks = (0, martian_1.markdownToBlocks)(markdownContent);
-        yield notionClient.addBlocksToPage(page.id, blocks);
+    yield notionClient.addBlocksToPage(notionPageId, notion.generateHeaderBlocks(repositoryUrl));
+    if (wikiCheckoutPath) {
+        const wikiPage = yield notionClient.createPage(notionPageId, "Wiki", repositoryUrl && `${repositoryUrl}/wiki`);
+        const wikiFiles = yield fs_1.default.promises.readdir(path_1.default.resolve(process.cwd(), wikiCheckoutPath), { withFileTypes: true });
+        const wikiMarkdownFiles = wikiFiles.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/));
+        for (const file of wikiMarkdownFiles) {
+            const fileNameWithoutExtension = file.name.replace(".md", "");
+            const page = yield notionClient.createPage(wikiPage.id, fileNameWithoutExtension, repositoryUrl && `${repositoryUrl}/wiki/${fileNameWithoutExtension}`);
+            const markdownContent = yield readFileAsString(path_1.default.resolve(process.cwd(), wikiCheckoutPath, file.name));
+            yield notionClient.addBlocksToPage(page.id, (0, martian_1.markdownToBlocks)(markdownContent));
+        }
     }
+    yield syncDirectoryToPage('.', notionPageId, repositoryUrl && branch && `${repositoryUrl}/blob/${branch}`);
 });
 exports["default"] = sync;
 
