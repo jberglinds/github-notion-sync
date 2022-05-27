@@ -28,7 +28,7 @@ npx ts-node src/cli.ts \
   --repository webbhalsa/dave \
   --branch release
  
-# See help
+# See all options
 npx ts-node src/cli.ts --help
 ```
 
@@ -65,3 +65,10 @@ jobs:
           WIKI_CHECKOUT_PATH: wiki # optional
 ```
 The `gollum` event triggers the workflow every time a wiki page is changed.
+
+## Development
+```bash
+npm install
+```
+
+### Publishing
