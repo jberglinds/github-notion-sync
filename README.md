@@ -72,3 +72,9 @@ npm install
 ```
 
 ### Publishing
+```bash
+# Build typescript src/ into dist/
+npm run package
+
+# Commit/push
+```
