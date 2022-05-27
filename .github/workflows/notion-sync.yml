@@ -2,6 +2,7 @@ name: Notion Sync
 
 on:
   workflow_dispatch:
+  gollum:
 
 jobs:
   sync:
@@ -19,7 +20,6 @@ jobs:
 
       - uses: jberglinds/github-notion-sync@main
         with:
-          REPOSITORY: ${{ github.repository }}
-          WIKI_CHECKOUT_PATH: wiki
           NOTION_ACCESS_TOKEN: ${{ secrets.NOTION_ACCESS_TOKEN }}
-          NOTION_ROOT_PAGE_ID: 9e0f5e1776a84608a31ca3bfde5babef
+          NOTION_PAGE_ID: 9e0f5e1776a84608a31ca3bfde5babef
+          WIKI_CHECKOUT_PATH: wiki
