@@ -18499,6 +18499,58 @@ module.exports.implForWrapper = function (wrapper) {
 
 /***/ }),
 
+/***/ 9620:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const gha = __importStar(__nccwpck_require__(2186));
+const index_1 = __importDefault(__nccwpck_require__(6144));
+const NOTION_ACCESS_TOKEN = gha.getInput("NOTION_ACCESS_TOKEN", { required: true });
+const NOTION_PAGE_ID = gha.getInput("NOTION_PAGE_ID", { required: true });
+const REPOSITORY = gha.getInput("REPOSITORY");
+const WIKI_CHECKOUT_PATH = gha.getInput("WIKI_CHECKOUT_PATH");
+(() => __awaiter(void 0, void 0, void 0, function* () { return (0, index_1.default)(NOTION_ACCESS_TOKEN, NOTION_PAGE_ID, REPOSITORY, WIKI_CHECKOUT_PATH); }))();
+
+
+/***/ }),
+
 /***/ 6144:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -18542,38 +18594,113 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const path_1 = __importDefault(__nccwpck_require__(1017));
-const gha = __importStar(__nccwpck_require__(2186));
-const client_1 = __nccwpck_require__(324);
 const martian_1 = __nccwpck_require__(6615);
-const notion = new client_1.Client({ auth: gha.getInput("NOTION_ACCESS_TOKEN", { required: true }) });
-const ROOT_PAGE_ID = gha.getInput("NOTION_ROOT_PAGE_ID", { required: true });
-const getPageBlocks = (pageId) => __awaiter(void 0, void 0, void 0, function* () {
-    const response = yield notion.blocks.children.list({
-        block_id: pageId,
-        page_size: 50,
-    });
-    return response.results;
-});
-const deleteBlock = (blockId) => __awaiter(void 0, void 0, void 0, function* () {
-    return yield notion.blocks.delete({
-        block_id: blockId,
-    });
-});
-const clearPage = (pageId) => __awaiter(void 0, void 0, void 0, function* () {
-    const blocks = yield getPageBlocks(ROOT_PAGE_ID);
-    for (let block of blocks) {
-        yield deleteBlock(block.id);
-    }
-});
-const addBlocksToPage = (pageId, blocks) => __awaiter(void 0, void 0, void 0, function* () {
-    return yield notion.blocks.children.append({
-        block_id: pageId,
-        children: blocks,
-    });
-});
+const notion = __importStar(__nccwpck_require__(7967));
 const readFileAsString = (filename) => __awaiter(void 0, void 0, void 0, function* () {
     return yield fs_1.default.promises.readFile(filename, { encoding: 'utf-8' });
 });
+const sync = (notionAccessToken, notionPageId, repository, wikiCheckoutPath) => __awaiter(void 0, void 0, void 0, function* () {
+    const notionClient = notion.getClient(notionAccessToken);
+    const repositoryUrl = repository && `https://github.com/${repository}`;
+    yield notionClient.clearPage(notionPageId);
+    const readmeMarkdown = yield readFileAsString("README.md");
+    const readmeBlocks = (0, martian_1.markdownToBlocks)(readmeMarkdown);
+    yield notionClient.addBlocksToPage(notionPageId, [...notion.generateHeaderBlocks(repositoryUrl), ...readmeBlocks]);
+    if (!wikiCheckoutPath)
+        return;
+    const wikiFiles = yield fs_1.default.promises.readdir(path_1.default.resolve(process.cwd(), wikiCheckoutPath), { withFileTypes: true });
+    const wikiMarkdownFiles = wikiFiles.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/));
+    const wikiPage = yield notionClient.createPage(notionPageId, "Wiki", repositoryUrl && `${repositoryUrl}/wiki`);
+    for (const file of wikiMarkdownFiles) {
+        const fileNameWithoutExtension = file.name.replace(".md", "");
+        const page = yield notionClient.createPage(wikiPage.id, fileNameWithoutExtension, repositoryUrl && `${repositoryUrl}/wiki/${fileNameWithoutExtension}`);
+        const markdownContent = yield readFileAsString(path_1.default.resolve(process.cwd(), wikiCheckoutPath, file.name));
+        const blocks = (0, martian_1.markdownToBlocks)(markdownContent);
+        yield notionClient.addBlocksToPage(page.id, blocks);
+    }
+});
+exports["default"] = sync;
+
+
+/***/ }),
+
+/***/ 7967:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.generateHeaderBlocks = exports.getClient = void 0;
+const client_1 = __nccwpck_require__(324);
+const getClient = (notionAccessToken) => {
+    const notion = new client_1.Client({ auth: notionAccessToken });
+    const getPageBlocks = (pageId) => __awaiter(void 0, void 0, void 0, function* () {
+        const response = yield notion.blocks.children.list({
+            block_id: pageId,
+            page_size: 50,
+        });
+        return response.results;
+    });
+    const deleteBlock = (blockId) => __awaiter(void 0, void 0, void 0, function* () {
+        console.debug(`Deleting block with id "${blockId}"...`);
+        yield notion.blocks.delete({
+            block_id: blockId,
+        });
+        console.debug(`Finished deleting block with id "${blockId}"`);
+    });
+    const clearPage = (pageId) => __awaiter(void 0, void 0, void 0, function* () {
+        console.debug(`Clearing page with id "${pageId}"...`);
+        const blocks = yield getPageBlocks(pageId);
+        for (let block of blocks) {
+            yield deleteBlock(block.id);
+        }
+        console.debug(`Finished clearing page with id "${pageId}"`);
+    });
+    const addBlocksToPage = (pageId, blocks) => __awaiter(void 0, void 0, void 0, function* () {
+        console.debug(`Adding blocks to page with id "${pageId}"...`);
+        const response = yield notion.blocks.children.append({
+            block_id: pageId,
+            children: blocks,
+        });
+        console.debug(`Finished adding blocks to page with id "${pageId}"`);
+        return response;
+    });
+    const createPage = (parentPageId, name, sourceUrl) => __awaiter(void 0, void 0, void 0, function* () {
+        console.debug(`Creating page "${name}" with parent page id "${parentPageId}"...`);
+        const page = yield notion.pages.create({
+            parent: {
+                type: 'page_id',
+                page_id: parentPageId
+            },
+            properties: {
+                title: [{
+                        text: {
+                            content: name
+                        }
+                    }]
+            }
+        });
+        console.debug(`Created page with id "${page.id}"`);
+        yield addBlocksToPage(page.id, (0, exports.generateHeaderBlocks)(sourceUrl));
+        return page;
+    });
+    return {
+        clearPage,
+        createPage,
+        addBlocksToPage,
+        deleteBlock,
+    };
+};
+exports.getClient = getClient;
 const generateHeaderBlocks = (sourceUrl) => {
     return [
         {
@@ -18584,7 +18711,7 @@ const generateHeaderBlocks = (sourceUrl) => {
                     {
                         type: "text",
                         text: {
-                            content: `This page was automatically generated from Github.`,
+                            content: `This page was automatically generated from ${(sourceUrl === null || sourceUrl === void 0 ? void 0 : sourceUrl.includes("github")) ? "Github" : "markdown"}.`,
                             link: null
                         },
                     },
@@ -18636,44 +18763,7 @@ const generateHeaderBlocks = (sourceUrl) => {
         }
     ];
 };
-const createPage = (parentPageId, name, sourceUrl) => __awaiter(void 0, void 0, void 0, function* () {
-    const page = yield notion.pages.create({
-        parent: {
-            type: 'page_id',
-            page_id: parentPageId
-        },
-        properties: {
-            title: [{
-                    text: {
-                        content: name
-                    }
-                }]
-        }
-    });
-    yield addBlocksToPage(page.id, generateHeaderBlocks(sourceUrl));
-    return page;
-});
-const WIKI_ROOT_PATH = gha.getInput("WIKI_CHECKOUT_PATH");
-const REPOSIORY_URL = `https://github.com/${gha.getInput("REPOSITORY")}`;
-(() => __awaiter(void 0, void 0, void 0, function* () {
-    yield clearPage(ROOT_PAGE_ID);
-    const readmeMarkdown = yield readFileAsString("README.md");
-    const readmeBlocks = (0, martian_1.markdownToBlocks)(readmeMarkdown);
-    yield addBlocksToPage(ROOT_PAGE_ID, [...generateHeaderBlocks(REPOSIORY_URL), ...readmeBlocks]);
-    if (!WIKI_ROOT_PATH)
-        return;
-    const wikiFiles = yield fs_1.default.promises.readdir(path_1.default.resolve(process.cwd(), WIKI_ROOT_PATH), { withFileTypes: true });
-    console.log(JSON.stringify(wikiFiles));
-    const wikiMarkdownFiles = wikiFiles.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/));
-    const wikiPage = yield createPage(ROOT_PAGE_ID, "Wiki", `${REPOSIORY_URL}/wiki`);
-    for (const file of wikiMarkdownFiles) {
-        const fileNameWithoutExtension = file.name.replace(".md", "");
-        const page = yield createPage(wikiPage.id, fileNameWithoutExtension, `${REPOSIORY_URL}/wiki/${fileNameWithoutExtension}`);
-        const markdownContent = yield readFileAsString(path_1.default.resolve(process.cwd(), WIKI_ROOT_PATH, file.name));
-        const blocks = (0, martian_1.markdownToBlocks)(markdownContent);
-        yield addBlocksToPage(page.id, blocks);
-    }
-}))();
+exports.generateHeaderBlocks = generateHeaderBlocks;
 
 
 /***/ }),
@@ -18872,7 +18962,7 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(6144);
+/******/ 	var __webpack_exports__ = __nccwpck_require__(9620);
 /******/ 	module.exports = __webpack_exports__;
 /******/ 	
 /******/ })()

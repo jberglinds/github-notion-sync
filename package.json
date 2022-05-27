@@ -1,14 +1,16 @@
 {
   "scripts": {
     "build": "tsc",
-    "package": "ncc build src/index.ts"
+    "package": "ncc build src/gha.ts"
   },
   "dependencies": {
     "@actions/core": "^1.8.0",
     "@notionhq/client": "^1.0.4",
-    "@tryfabric/martian": "^1.2.0"
+    "@tryfabric/martian": "^1.2.0",
+    "yargs": "^17.5.1"
   },
   "devDependencies": {
+    "@types/yargs": "^17.0.10",
     "@vercel/ncc": "^0.33.4",
     "ts-node": "^10.7.0",
     "typescript": "^4.6.4"

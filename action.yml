@@ -1,18 +1,18 @@
 name: 'Sync markdown to Notion'
 description: 'Syncs .md files in a github repo to a Notion page'
 inputs:
-  REPOSITORY:
-    description: 'The name of the repository, used to link back from Notion to the repo. Should normally be set to the github.repository parameter'
-    required: true
-  WIKI_CHECKOUT_PATH:
-    description: 'The path where the wiki of the repo is checked out. If not set, wiki will not be exported to Notion.'
-    required: false
   NOTION_ACCESS_TOKEN:
     description: 'Access token to access Notion API.'
     required: true
-  NOTION_ROOT_PAGE_ID:
-    description: 'The page ID where the data will be synced. Make sure the access token has been given access to the page.'
+  NOTION_PAGE_ID:
+    description: 'The page ID where the data will be synced. Contents and subpages will be replaced. Make sure the access token has been given access to the page.'
     required: true
+  REPOSITORY:
+    description: 'The name of the repository, used to link back from Notion to the repo. Should normally be set to the github.repository parameter'
+    required: false
+  WIKI_CHECKOUT_PATH:
+    description: 'The path where the wiki of the repo is checked out. If not set, wiki will not be exported to Notion.'
+    required: false
 runs:
   using: 'node16'
   main: 'dist/index.js'
