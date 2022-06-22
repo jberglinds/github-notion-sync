@@ -18643,7 +18643,14 @@ const sync = (notionAccessToken, notionPageId, repository, branch, wikiCheckoutP
     if (wikiCheckoutPath) {
         const wikiPage = yield notionClient.createPage(notionPageId, "Wiki", repositoryUrl && `${repositoryUrl}/wiki`);
         const wikiFiles = yield fs_1.default.promises.readdir(path_1.default.resolve(process.cwd(), wikiCheckoutPath), { withFileTypes: true });
-        const wikiMarkdownFiles = wikiFiles.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/));
+        const wikiMarkdownFiles = wikiFiles
+            .filter((file) => file.isFile() && file.name.match(/^[^_.]*\.md$/))
+            .filter((file) => !file.name.match(/home\.md/i));
+        const homepageFile = wikiFiles.find(file => file.isFile() && file.name.match(/home\.md/i));
+        if (homepageFile) {
+            const markdownContent = yield readFileAsString(path_1.default.resolve(process.cwd(), wikiCheckoutPath, homepageFile.name));
+            yield notionClient.addBlocksToPage(wikiPage.id, (0, martian_1.markdownToBlocks)(markdownContent));
+        }
         for (const file of wikiMarkdownFiles) {
             const fileNameWithoutExtension = file.name.replace(".md", "");
             const page = yield notionClient.createPage(wikiPage.id, fileNameWithoutExtension, repositoryUrl && `${repositoryUrl}/wiki/${fileNameWithoutExtension}`);

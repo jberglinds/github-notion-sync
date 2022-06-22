@@ -56,7 +56,16 @@ const sync = async (notionAccessToken: string, notionPageId: string, repository?
     if (wikiCheckoutPath) {
         const wikiPage = await notionClient.createPage(notionPageId, "Wiki", repositoryUrl && `${repositoryUrl}/wiki`)
         const wikiFiles = await fs.promises.readdir(path.resolve(process.cwd(), wikiCheckoutPath), {withFileTypes: true})
-        const wikiMarkdownFiles = wikiFiles.filter(file => file.isFile() && file.name.match(/^[^_.]*\.md$/))
+
+        const wikiMarkdownFiles = wikiFiles
+          .filter((file) => file.isFile() && file.name.match(/^[^_.]*\.md$/))
+          .filter((file) => !file.name.match(/home\.md/i));
+
+        const homepageFile = wikiFiles.find(file => file.isFile() && file.name.match(/home\.md/i));
+        if (homepageFile) {
+            const markdownContent = await readFileAsString(path.resolve(process.cwd(), wikiCheckoutPath, homepageFile.name))
+            await notionClient.addBlocksToPage(wikiPage.id, markdownToBlocks(markdownContent))
+        }
 
         for (const file of wikiMarkdownFiles) {
             const fileNameWithoutExtension = file.name.replace(".md", "")
